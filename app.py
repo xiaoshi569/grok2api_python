@@ -231,11 +231,13 @@ class AuthTokenManager:
                 
             token_entry = self.token_model_map[normalized_model][0]
             
+            # 确保RequestCount不会小于0
             new_count = max(0, token_entry["RequestCount"] - count)
             reduction = token_entry["RequestCount"] - new_count
             
             token_entry["RequestCount"] = new_count
             
+            # 更新token状态
             if token_entry["token"]:
                 sso = token_entry["token"].split("sso=")[1].split(";")[0]
                 if sso in self.token_status_map and normalized_model in self.token_status_map[sso]:
@@ -441,12 +443,17 @@ class Utils:
 
         if proxy:
             logger.info(f"使用代理: {proxy}", "Server")
-            proxy_options["proxies"] = {"https": proxy, "http": proxy}
-
             if proxy.startswith("socks5://"):
+                proxy_options["proxy"] = proxy
+            
+                if '@' in proxy:
+                    auth_part = proxy.split('@')[0].split('://')[1]
+                    if ':' in auth_part:
+                        username, password = auth_part.split(':')
+                        proxy_options["proxy_auth"] = (username, password)
+            else:
                 proxy_options["proxies"] = {"https": proxy, "http": proxy}
-                proxy_options["proxy_type"] = "socks5"
-
+        print(proxy_options)        
         return proxy_options
 
 class GrokApiClient:
