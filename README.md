@@ -86,7 +86,7 @@ docker run -it -d --name grok2api \
 ## 方法二：Hugging Face部署
 
 ### 部署地址
-[GrokPythonTo2](https://huggingface.co/spaces/yxmiler/GrokPythonTo2)
+[GrokPythonService](https://huggingface.co/spaces/yxmiler/GrokPythonService)
 
 ### 功能特点
 实现的功能：
