@@ -10,6 +10,7 @@
 1. 打开无痕浏览器，输入https://grok.com
 2. 直接进入则没有被风控，如果出现下图所示画面，则表示已经被风控，该ip无法使用本项目
    ![image](https://github.com/user-attachments/assets/0466aa57-9a31-4f7c-bd07-fece11f27646)
+3. 如果风控后，过了5秒盾，会给与一个一年有效期的cf_clearance，可以将这个填入环境变量CF_CLEARANCE，可以提高破盾的稳定性，亚洲ip无效。
 
 
 
@@ -80,6 +81,7 @@ docker run -it -d --name grok2api \
 |变量 | 说明 | 构建时是否必填 |示例|
 |--- | --- | ---| ---|
 |`IS_TEMP_CONVERSATION` | 是否开启临时会话，开启后会话历史记录不会保留在网页 | （可以不填，默认是false） | `true/false`|
+|`CF_CLEARANCE` | cf的5秒盾后的值，随便一个号过盾后的都可以，通用，可以提高破盾的稳定性（部分亚洲地区无效） | （可以不填，默认无） | `cf_clearance=xxxxxx`|
 |`API_KEY` | 自定义认证鉴权密钥 | （可以不填，默认是sk-123456） | `sk-123456`|
 |`PROXY` | 代理设置，支持https和Socks5 | 可不填，默认无 | -|
 |`PICGO_KEY` | PicGo图床密钥，两个图床二选一 | 不填无法流式生图 | -|
@@ -130,6 +132,11 @@ docker run -it -d --name grok2api \
 1. 打开[grok官网](https://grok.com/)
 2. 复制如下的SSO的cookie的值填入SSO变量即可
 ![9EA{{UY6 PU~PENQHYO5JS7](https://github.com/user-attachments/assets/539d4a53-9352-49fd-8657-e942a94f44e9)
+
+### cf_clearance的获取办法：
+1. 随便登录一个账号打开[grok官网](https://grok.com/)
+2. 复制如下的cf_clearance的cookie的值填入CF_CLEARANCE变量即可，只需要填入一个，不可以多个,格式cf_clearance=xxxxx
+![W1F8FTBT`~17(TFP5LS173Q](https://github.com/user-attachments/assets/f5603267-316a-4126-8c77-a84a91ee6344)
 
 
 ### API调用
