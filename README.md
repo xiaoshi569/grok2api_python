@@ -10,7 +10,7 @@
 1. 打开无痕浏览器，输入https://grok.com
 2. 直接进入则没有被风控，如果出现下图所示画面，则表示已经被风控，该ip无法使用本项目
    ![image](https://github.com/user-attachments/assets/0466aa57-9a31-4f7c-bd07-fece11f27646)
-3. 如果风控后，过了5秒盾，会给与一个一年有效期的cf_clearance，可以将这个填入环境变量CF_CLEARANCE，可以提高破盾的稳定性（大概），亚洲ip无效。
+3. 如果风控后，过了5秒盾，会给与一个一年有效期的cf_clearance，可以将这个填入环境变量CF_CLEARANCE，这个cf_clearance和你的ip是绑定的，如果更换ip需要重新获取，可以提高破盾的稳定性（大概），亚洲ip无效。
 
 
 
@@ -81,7 +81,7 @@ docker run -it -d --name grok2api \
 |变量 | 说明 | 构建时是否必填 |示例|
 |--- | --- | ---| ---|
 |`IS_TEMP_CONVERSATION` | 是否开启临时会话，开启后会话历史记录不会保留在网页 | （可以不填，默认是false） | `true/false`|
-|`CF_CLEARANCE` | cf的5秒盾后的值，随便一个号过盾后的都可以，通用，可以提高破盾的稳定性（部分亚洲地区无效） | （可以不填，默认无） | `cf_clearance=xxxxxx`|
+|`CF_CLEARANCE` | cf的5秒盾后的值，随便一个号过盾后的都可以，这个cf_clearance和你的ip是绑定的，如果更换ip需要重新获取。通用，可以提高破盾的稳定性（部分亚洲地区无效） | （可以不填，默认无） | `cf_clearance=xxxxxx`|
 |`API_KEY` | 自定义认证鉴权密钥 | （可以不填，默认是sk-123456） | `sk-123456`|
 |`PROXY` | 代理设置，支持https和Socks5 | 可不填，默认无 | -|
 |`PICGO_KEY` | PicGo图床密钥，两个图床二选一 | 不填无法流式生图 | -|
