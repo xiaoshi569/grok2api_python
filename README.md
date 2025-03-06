@@ -81,7 +81,7 @@ docker run -it -d --name grok2api \
 |变量 | 说明 | 构建时是否必填 |示例|
 |--- | --- | ---| ---|
 |`IS_TEMP_CONVERSATION` | 是否开启临时会话，开启后会话历史记录不会保留在网页 | （可以不填，默认是false） | `true/false`|
-|`CF_CLEARANCE` | cf的5秒盾后的值，随便一个号过盾后的都可以，这个cf_clearance和你的ip是绑定的，如果更换ip需要重新获取。通用，可以提高破盾的稳定性（部分亚洲地区无效） | （可以不填，默认无） | `cf_clearance=xxxxxx`|
+|`CF_CLEARANCE` | cf的5秒盾后的值，随便一个号过盾后的都可以，这个cf_clearance和你的ip是绑定的，如果更换ip需要重新获取。通用，可以提高破盾的稳定性 | （可以不填，默认无） | `cf_clearance=xxxxxx`|
 |`API_KEY` | 自定义认证鉴权密钥 | （可以不填，默认是sk-123456） | `sk-123456`|
 |`PROXY` | 代理设置，支持https和Socks5 | 可不填，默认无 | -|
 |`PICGO_KEY` | PicGo图床密钥，两个图床二选一 | 不填无法流式生图 | -|
