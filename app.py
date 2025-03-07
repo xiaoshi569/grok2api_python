@@ -109,6 +109,7 @@ CONFIG = {
         "PORT": int(os.environ.get("PORT", 5200))
     },
     "RETRY": {
+        "RETRYSWITCH": False,
         "MAX_ATTEMPTS": 2
     },
     "SHOW_THINKING": os.environ.get("SHOW_THINKING") == "true",
@@ -252,13 +253,15 @@ class AuthTokenManager:
         except Exception as error:
             logger.error(f"重置校对token请求次数时发生错误: {str(error)}", "TokenManager")
             return False
-    def get_next_token_for_model(self, model_id):
+    def get_next_token_for_model(self, model_id, is_return=False):
         normalized_model = self.normalize_model_name(model_id)
 
         if normalized_model not in self.token_model_map or not self.token_model_map[normalized_model]:
             return None
 
         token_entry = self.token_model_map[normalized_model][0]
+        if is_return:
+            return token_entry["token"]
 
         if token_entry:
             if token_entry["StartCallTime"] is None:
@@ -411,6 +414,14 @@ class AuthTokenManager:
             for entry in model_tokens:
                 all_tokens.add(entry["token"])
         return list(all_tokens)
+    def get_current_token(self, model_id):
+        normalized_model = self.normalize_model_name(model_id)
+
+        if normalized_model not in self.token_model_map or not self.token_model_map[normalized_model]:
+            return None
+
+        token_entry = self.token_model_map[normalized_model][0]
+        return token_entry["token"]
 
     def get_token_status_map(self):
         return self.token_status_map
@@ -435,8 +446,8 @@ class Utils:
         return '\n\n'.join(formatted_results)
 
     @staticmethod
-    def create_auth_headers(model):
-        return token_manager.get_next_token_for_model(model)
+    def create_auth_headers(model, is_return=False):
+        return token_manager.get_next_token_for_model(model, is_return)
 
     @staticmethod
     def get_proxy_options():
@@ -455,8 +466,7 @@ class Utils:
                         username, password = auth_part.split(':')
                         proxy_options["proxy_auth"] = (username, password)
             else:
-                proxy_options["proxies"] = {"https": proxy, "http": proxy}
-        print(proxy_options)        
+                proxy_options["proxies"] = {"https": proxy, "http": proxy}     
         return proxy_options
 
 class GrokApiClient:
@@ -485,7 +495,40 @@ class GrokApiClient:
             "mimeType": mime_type,
             "fileName": file_name
         }
+    def upload_base64_file(self, message, model):
+        try:
+            message_base64 = base64.b64encode(message.encode('utf-8')).decode('utf-8')
+            upload_data = {
+                "fileName": "message.txt",
+                "fileMimeType": "text/plain",
+                "content": message_base64
+            }
 
+            logger.info("发送文字文件请求", "Server")
+            cookie = f"{Utils.create_auth_headers(model, True)};{CONFIG['SERVER']['CF_CLEARANCE']}" 
+            proxy_options = Utils.get_proxy_options()
+            response = curl_requests.post(
+                "https://grok.com/rest/app-chat/upload-file",
+                headers={
+                    **DEFAULT_HEADERS,
+                    "Cookie":cookie
+                },
+                json=upload_data,
+                impersonate="chrome133a",
+                **proxy_options
+            )
+
+            if response.status_code != 200:
+                logger.error(f"上传文件失败,状态码:{response.status_code}", "Server")
+                return ''
+
+            result = response.json()
+            logger.info(f"上传文件成功: {result}", "Server")
+            return result.get("fileMetadataId", "")
+
+        except Exception as error:
+            logger.error(str(error), "Server")
+            return ''
     def upload_base64_image(self, base64_data, url):
         try:
             if 'data:image' in base64_data:
@@ -549,6 +592,9 @@ class GrokApiClient:
         messages = ''
         last_role = None
         last_content = ''
+        message_length = 0
+        convert_to_file = False
+        last_message_content = ''
         search = request["model"] in ['grok-2-search', 'grok-3-search']
 
         # 移除<think>标签及其内容和base64图片
@@ -598,7 +644,9 @@ class GrokApiClient:
 
 
             text_content = process_content(current.get("content", ""))
-
+            if is_last_message:
+                last_message_content = f"{role.upper()}: {text_content or '[图片]'}\n"
+                continue
             if text_content or (is_last_message and file_attachments):
                 if role == last_role and text_content:
                     last_content += '\n' + text_content
@@ -607,7 +655,14 @@ class GrokApiClient:
                     messages += f"{role.upper()}: {text_content or '[图片]'}\n"
                     last_content = text_content
                     last_role = role
-
+            message_length += len(messages)
+            if message_length >= 40000:
+                convert_to_file = True
+        if convert_to_file:
+            file_id = self.upload_base64_file(messages, request["model"])
+            if file_id:
+                file_attachments.insert(0, file_id)
+            messages = last_message_content.strip()
         return {
             "temporary": CONFIG["API"].get("IS_TEMP_CONVERSATION", False),
             "modelName": self.model_id,
@@ -943,7 +998,20 @@ def add_token():
     except Exception as error:
         logger.error(str(error), "Server")
         return jsonify({"error": '添加sso令牌失败'}), 500
-
+    
+@app.route('/set/cf_clearance', methods=['POST'])
+def setCf_clearance():
+    auth_token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if auth_token != CONFIG["API"]["API_KEY"]:
+        return jsonify({"error": 'Unauthorized'}), 401
+    try:
+        cf_clearance = request.json.get('cf_clearance')
+        CONFIG["SERVER"]['CF_CLEARANCE'] = cf_clearance
+        return jsonify({"message": '设置cf_clearance成功'}), 200
+    except Exception as error:
+        logger.error(str(error), "Server")
+        return jsonify({"error": '设置cf_clearance失败'}), 500
+    
 @app.route('/delete/token', methods=['POST'])
 def delete_token():
     auth_token = request.headers.get('Authorization', '').replace('Bearer ', '')
@@ -1026,33 +1094,26 @@ def chat_completions():
                     impersonate="chrome133a",
                     stream=True,
                     **proxy_options)
-                print(CONFIG["SERVER"]['COOKIE'])
+                logger.info(CONFIG["SERVER"]['COOKIE'],"Server")
                 if response.status_code == 200:
                     response_status_code = 200
                     logger.info("请求成功", "Server")
-                    logger.info(
-                        f"当前{model}剩余可用令牌数: {token_manager.get_token_count_for_model(model)}",
-                        "Server")
+                    logger.info(f"当前{model}剩余可用令牌数: {token_manager.get_token_count_for_model(model)}","Server")
 
                     try:
                         if stream:
                             return Response(stream_with_context(
-                                handle_stream_response(response, model)),
-                                            content_type='text/event-stream')
+                                handle_stream_response(response, model)),content_type='text/event-stream')
                         else:
-                            content = handle_non_stream_response(
-                                response, model)
+                            content = handle_non_stream_response(response, model)
                             return jsonify(
-                                MessageProcessor.create_chat_response(
-                                    content, model))
+                                MessageProcessor.create_chat_response(content, model))
 
                     except Exception as error:
                         logger.error(str(error), "Server")
                         if CONFIG["API"]["IS_CUSTOM_SSO"]:
                             raise ValueError(f"自定义SSO令牌当前模型{model}的请求次数已失效")
-
-                        token_manager.remove_token_from_model(
-                            model, CONFIG["API"]["SIGNATURE_COOKIE"])
+                        token_manager.remove_token_from_model(model, CONFIG["API"]["SIGNATURE_COOKIE"])
                         if token_manager.get_token_count_for_model(model) == 0:
                             raise ValueError(f"{model} 次数已达上限，请切换其他模型或者重新对话")
                 elif response.status_code == 403:
@@ -1076,10 +1137,8 @@ def chat_completions():
                     if CONFIG["API"]["IS_CUSTOM_SSO"]:
                         raise ValueError(f"自定义SSO令牌当前模型{model}的请求次数已失效")
 
-                    logger.error(f"令牌异常错误状态!status: {response.status_code}",
-                                 "Server")
-                    token_manager.remove_token_from_model(
-                        model, CONFIG["API"]["SIGNATURE_COOKIE"])
+                    logger.error(f"令牌异常错误状态!status: {response.status_code}","Server")
+                    token_manager.remove_token_from_model(model, CONFIG["API"]["SIGNATURE_COOKIE"])
                     logger.info(
                         f"当前{model}剩余可用令牌数: {token_manager.get_token_count_for_model(model)}",
                         "Server")
