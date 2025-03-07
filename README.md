@@ -12,7 +12,41 @@
    ![image](https://github.com/user-attachments/assets/0466aa57-9a31-4f7c-bd07-fece11f27646)
 3. 如果风控后，过了5秒盾，会给与一个一年有效期的cf_clearance，可以将这个填入环境变量CF_CLEARANCE，这个cf_clearance和你的ip是绑定的，如果更换ip需要重新获取，可以提高破盾的稳定性（大概）。
 
+### 功能特点
+实现的功能：
+1. 已支持文字生成图，使用grok-2-imageGen和grok-3-imageGen模型。
+2. 已支持全部模型识图和传图，只会识别存储用户消息最新的一个图，历史记录图全部为占位符替代。
+3. 已支持搜索功能，使用grok-2-search或者grok-3-search模型，可以选择是否关闭搜索结果
+4. 已支持深度搜索功能，使用grok-3-deepsearch，深度搜索支持think过程显示
+5. 已支持推理模型功能，使用grok-3-reasoning
+6. 已支持真流式，上面全部功能都可以在流式情况调用
+7. 支持多账号轮询，在环境变量中配置
+8. 可以选择是否移除思考模型的思考过程。
+9. 支持自行设置轮询和负载均衡，而不依靠项目代码
+10. 自动过CF屏蔽盾
+11. 可自定义http和Socks5代理
+12. 上下文40k时自动转换为文件以提高上下文限制
+13. 已转换为openai格式。
 
+## API 接口文档
+
+### 模型管理
+| 接口 | 方法 | 路径 | 描述 |
+|------|------|------|------|
+| 模型列表 | GET | `/v1/models` | 获取可用模型列表 |
+| 对话 | POST | `/v1/chat/completions` | 发起对话请求 |
+
+### SSO令牌管理与安全设置
+| 接口 | 方法 | 路径 | 请求体 | 描述 |
+|------|------|------|--------|------|
+| 添加SSO令牌 | POST | `/add/token` | `{sso: "eyXXXXXXXX"}` | 添加SSO认证令牌 |
+| 删除SSO令牌 | POST | `/delete/token` | `{sso: "eyXXXXXXXX"}` | 删除SSO认证令牌 |
+| 获取SSO令牌状态 | GET | `/get/tokens` | - | 查询所有SSO令牌状态 |
+| 修改cf_clearance | POST | `/set/cf_clearance` | `{cf_clearance: "XXXXXXXX"}` | 更新cf_clearance Cookie |
+
+**注意事项**：
+- 所有POST请求需要在请求体中携带相应的认证信息
+- SSO令牌和cf_clearance是敏感信息，请妥善保管
 
 ## 方法一：Docker部署
 
@@ -97,22 +131,6 @@ docker run -it -d --name grok2api \
 ### 部署地址
 [GrokPythonService](https://huggingface.co/spaces/yxmiler/GrokPythonService)
 
-### 功能特点
-实现的功能：
-1. 已支持文字生成图，使用grok-2-imageGen和grok-3-imageGen模型。
-2. 已支持全部模型识图和传图，只会识别存储用户消息最新的一个图，历史记录图全部为占位符替代。
-3. 已支持搜索功能，使用grok-2-search或者grok-3-search模型，可以选择是否关闭搜索结果
-4. 已支持深度搜索功能，使用grok-3-deepsearch，深度搜索支持think过程显示
-5. 已支持推理模型功能，使用grok-3-reasoning
-6. 已支持真流式，上面全部功能都可以在流式情况调用
-7. 支持多账号轮询，在环境变量中配置
-8. 可以选择是否移除思考模型的思考过程。
-9. 支持自行设置轮询和负载均衡，而不依靠项目代码
-10. 自动过CF屏蔽盾
-11. 可自定义http和Socks5代理
-12. 上下文40k时自动转换为文件以提高上下文限制
-13. 已转换为openai格式。
-
 ### 可用模型列表
 - `grok-2`
 - `grok-2-imageGen`
@@ -139,25 +157,6 @@ docker run -it -d --name grok2api \
 2. 复制如下的cf_clearance的cookie的值填入CF_CLEARANCE变量即可，只需要填入一个，不可以多个,格式cf_clearance=xxxxx
 ![W1F8FTBT`~17(TFP5LS173Q](https://github.com/user-attachments/assets/f5603267-316a-4126-8c77-a84a91ee6344)
 
-## API 接口文档
-
-### 模型管理
-| 接口 | 方法 | 路径 | 描述 |
-|------|------|------|------|
-| 模型列表 | GET | `/v1/models` | 获取可用模型列表 |
-| 对话 | POST | `/v1/chat/completions` | 发起对话请求 |
-
-### SSO令牌管理与安全设置
-| 接口 | 方法 | 路径 | 请求体 | 描述 |
-|------|------|------|--------|------|
-| 添加SSO令牌 | POST | `/add/token` | `{sso: "eyXXXXXXXX"}` | 添加SSO认证令牌 |
-| 删除SSO令牌 | POST | `/delete/token` | `{sso: "eyXXXXXXXX"}` | 删除SSO认证令牌 |
-| 获取SSO令牌状态 | GET | `/get/tokens` | - | 查询所有SSO令牌状态 |
-| 修改cf_clearance | POST | `/set/cf_clearance` | `{cf_clearance: "XXXXXXXX"}` | 更新cf_clearance Cookie |
-
-**注意事项**：
-- 所有POST请求需要在请求体中携带相应的认证信息
-- SSO令牌和cf_clearance是敏感信息，请妥善保管
 
 ## 备注
 - 消息基于用户的伪造连续对话
