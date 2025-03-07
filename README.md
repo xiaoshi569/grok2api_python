@@ -110,7 +110,8 @@ docker run -it -d --name grok2api \
 9. 支持自行设置轮询和负载均衡，而不依靠项目代码
 10. 自动过CF屏蔽盾
 11. 可自定义http和Socks5代理
-12. 已转换为openai格式。
+12. 上下文40k时自动转换为文件以提高上下文限制
+13. 已转换为openai格式。
 
 ### 可用模型列表
 - `grok-2`
@@ -138,12 +139,25 @@ docker run -it -d --name grok2api \
 2. 复制如下的cf_clearance的cookie的值填入CF_CLEARANCE变量即可，只需要填入一个，不可以多个,格式cf_clearance=xxxxx
 ![W1F8FTBT`~17(TFP5LS173Q](https://github.com/user-attachments/assets/f5603267-316a-4126-8c77-a84a91ee6344)
 
+## API 接口文档
 
-### API调用
-- 模型列表：`/v1/models`
-- 对话：`/v1/chat/completions`
-- 添加令牌:`/add/token`
-- 获取全部令牌状态:`/get/tokens`
+### 模型管理
+| 接口 | 方法 | 路径 | 描述 |
+|------|------|------|------|
+| 模型列表 | GET | `/v1/models` | 获取可用模型列表 |
+| 对话 | POST | `/v1/chat/completions` | 发起对话请求 |
+
+### SSO令牌管理与安全设置
+| 接口 | 方法 | 路径 | 请求体 | 描述 |
+|------|------|------|--------|------|
+| 添加SSO令牌 | POST | `/add/token` | `{sso: "eyXXXXXXXX"}` | 添加SSO认证令牌 |
+| 删除SSO令牌 | POST | `/delete/token` | `{sso: "eyXXXXXXXX"}` | 删除SSO认证令牌 |
+| 获取SSO令牌状态 | GET | `/get/tokens` | - | 查询所有SSO令牌状态 |
+| 修改cf_clearance | POST | `/set/cf_clearance` | `{cf_clearance: "XXXXXXXX"}` | 更新cf_clearance Cookie |
+
+**注意事项**：
+- 所有POST请求需要在请求体中携带相应的认证信息
+- SSO令牌和cf_clearance是敏感信息，请妥善保管
 
 ## 备注
 - 消息基于用户的伪造连续对话
