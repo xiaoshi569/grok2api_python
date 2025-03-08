@@ -45,6 +45,8 @@
 | 修改cf_clearance | POST | `/set/cf_clearance` | `{cf_clearance: "cf_clearance=XXXXXXXX"}` | 更新cf_clearance Cookie |
 
 ### TOKEN管理界面
+使用如下接口：http://127.0.0.1:3000/manager
+
 ![image](https://github.com/user-attachments/assets/9caedf30-5075-4edb-b5c4-96852647a43d)
 
 
