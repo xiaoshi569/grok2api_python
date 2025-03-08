@@ -594,7 +594,6 @@ class GrokApiClient:
         last_content = ''
         message_length = 0
         convert_to_file = False
-        last_message_content = ''
         search = request["model"] in ['grok-2-search', 'grok-3-search']
 
         # 移除<think>标签及其内容和base64图片
@@ -645,7 +644,7 @@ class GrokApiClient:
 
             text_content = process_content(current.get("content", ""))
             if is_last_message:
-                last_message_content = f"{role.upper()}: {text_content or '[图片]'}\n"
+                messages = f"{role.upper()}: {text_content or '[图片]'}\n"
                 continue
             if text_content or (is_last_message and file_attachments):
                 if role == last_role and text_content:
@@ -662,7 +661,7 @@ class GrokApiClient:
             file_id = self.upload_base64_file(messages, request["model"])
             if file_id:
                 file_attachments.insert(0, file_id)
-            messages = last_message_content.strip()
+
         return {
             "temporary": CONFIG["API"].get("IS_TEMP_CONVERSATION", False),
             "modelName": self.model_id,
@@ -1078,10 +1077,12 @@ def chat_completions():
                 f"当前令牌: {json.dumps(CONFIG['API']['SIGNATURE_COOKIE'], indent=2)}","Server")
             logger.info(
                 f"当前可用模型的全部可用数量: {json.dumps(token_manager.get_remaining_token_request_capacity(), indent=2)}","Server")
+            
             if CONFIG['SERVER']['CF_CLEARANCE']:
                 CONFIG["SERVER"]['COOKIE'] = f"{CONFIG['API']['SIGNATURE_COOKIE']};{CONFIG['SERVER']['CF_CLEARANCE']}" 
             else:
                 CONFIG["SERVER"]['COOKIE'] = CONFIG['API']['SIGNATURE_COOKIE']
+            logger.info(json.dumps(request_payload,indent=2),"Server")
             try:
                 proxy_options = Utils.get_proxy_options()
                 response = curl_requests.post(
