@@ -658,8 +658,6 @@ class GrokApiClient:
             message_length += len(messages)
             if message_length >= 40000:
                 convert_to_file = True
-        with open('messages.txt', 'w', encoding='utf-8') as file:
-            file.write(messages)
         if convert_to_file:
             file_id = self.upload_base64_file(messages, request["model"])
             if file_id:
