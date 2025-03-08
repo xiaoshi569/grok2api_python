@@ -44,6 +44,28 @@
 | 获取SSO令牌状态 | GET | `/get/tokens` | - | 查询所有SSO令牌状态 |
 | 修改cf_clearance | POST | `/set/cf_clearance` | `{cf_clearance: "cf_clearance=XXXXXXXX"}` | 更新cf_clearance Cookie |
 
+### TOKEN管理界面
+![image](https://github.com/user-attachments/assets/9caedf30-5075-4edb-b5c4-96852647a43d)
+
+
+### 环境变量具体配置
+
+|变量 | 说明 | 构建时是否必填 |示例|
+|--- | --- | ---| ---|
+|`MANAGER_SWITCH` | 是否开启管理界面 | （可以不填，默认是false） | `true/false`|
+|`ADMINPASSWORD` | 管理界面的管理员密码，请区别于API_KEY，并且设置高强度密码 | （MANAGER_SWITCH没有开启时可以不填，默认是无） | `OjB6*BLlT&nV2M$x`|
+|`IS_TEMP_CONVERSATION` | 是否开启临时会话，开启后会话历史记录不会保留在网页 | （可以不填，默认是false） | `true/false`|
+|`CF_CLEARANCE` | cf的5秒盾后的值，随便一个号过盾后的都可以，这个cf_clearance和你的ip是绑定的，如果更换ip需要重新获取。通用，可以提高破盾的稳定性 | （可以不填，默认无） | `cf_clearance=xxxxxx`|
+|`API_KEY` | 自定义认证鉴权密钥 | （可以不填，默认是sk-123456） | `sk-123456`|
+|`PROXY` | 代理设置，支持https和Socks5 | 可不填，默认无 | -|
+|`PICGO_KEY` | PicGo图床密钥，两个图床二选一 | 不填无法流式生图 | -|
+|`TUMY_KEY` | TUMY图床密钥，两个图床二选一 | 不填无法流式生图 | -|
+|`ISSHOW_SEARCH_RESULTS` | 是否显示搜索结果 | （可不填，默认关闭） | `true/false`|
+|`SSO` | Grok官网SSO Cookie,可以设置多个使用英文 , 分隔，我的代码里会对不同账号的SSO自动轮询和均衡 | （除非开启IS_CUSTOM_SSO否则必填） | `sso,sso`|
+|`PORT` | 服务部署端口 | （可不填，默认3000） | `3000`|
+|`IS_CUSTOM_SSO` | 这是如果你想自己来自定义号池来轮询均衡，而不是通过我代码里已经内置的号池逻辑系统来为你轮询均衡启动的开关。开启后 API_KEY 需要设置为请求认证用的 sso cookie，同时SSO环境变量失效。一个apikey每次只能传入一个sso cookie 值，不支持一个请求里的apikey填入多个sso。想自动使用多个sso请关闭 IS_CUSTOM_SSO 这个环境变量，然后按照SSO环境变量要求在sso环境变量里填入多个sso，由我的代码里内置的号池系统来为你自动轮询 | （可不填，默认关闭） | `true/false`|
+|`SHOW_THINKING` | 是否显示思考模型的思考过程 | （可不填，默认关闭） | `true/false`|
+
 **注意事项**：
 - 所有POST请求需要在请求体中携带相应的认证信息
 - SSO令牌和cf_clearance是敏感信息，请妥善保管
@@ -109,22 +131,6 @@ docker run -it -d --name grok2api \
   -e SSO=your_sso \
   yourusername/grok2api:latest
 ```
-
-### 3. 环境变量具体配置
-
-|变量 | 说明 | 构建时是否必填 |示例|
-|--- | --- | ---| ---|
-|`IS_TEMP_CONVERSATION` | 是否开启临时会话，开启后会话历史记录不会保留在网页 | （可以不填，默认是false） | `true/false`|
-|`CF_CLEARANCE` | cf的5秒盾后的值，随便一个号过盾后的都可以，这个cf_clearance和你的ip是绑定的，如果更换ip需要重新获取。通用，可以提高破盾的稳定性 | （可以不填，默认无） | `cf_clearance=xxxxxx`|
-|`API_KEY` | 自定义认证鉴权密钥 | （可以不填，默认是sk-123456） | `sk-123456`|
-|`PROXY` | 代理设置，支持https和Socks5 | 可不填，默认无 | -|
-|`PICGO_KEY` | PicGo图床密钥，两个图床二选一 | 不填无法流式生图 | -|
-|`TUMY_KEY` | TUMY图床密钥，两个图床二选一 | 不填无法流式生图 | -|
-|`ISSHOW_SEARCH_RESULTS` | 是否显示搜索结果 | （可不填，默认关闭） | `true/false`|
-|`SSO` | Grok官网SSO Cookie,可以设置多个使用英文 , 分隔，我的代码里会对不同账号的SSO自动轮询和均衡 | （除非开启IS_CUSTOM_SSO否则必填） | `sso,sso`|
-|`PORT` | 服务部署端口 | （可不填，默认3000） | `3000`|
-|`IS_CUSTOM_SSO` | 这是如果你想自己来自定义号池来轮询均衡，而不是通过我代码里已经内置的号池逻辑系统来为你轮询均衡启动的开关。开启后 API_KEY 需要设置为请求认证用的 sso cookie，同时SSO环境变量失效。一个apikey每次只能传入一个sso cookie 值，不支持一个请求里的apikey填入多个sso。想自动使用多个sso请关闭 IS_CUSTOM_SSO 这个环境变量，然后按照SSO环境变量要求在sso环境变量里填入多个sso，由我的代码里内置的号池系统来为你自动轮询 | （可不填，默认关闭） | `true/false`|
-|`SHOW_THINKING` | 是否显示思考模型的思考过程 | （可不填，默认关闭） | `true/false`|
 
 ## 方法二：Hugging Face部署
 
