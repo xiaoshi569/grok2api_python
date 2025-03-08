@@ -5,13 +5,13 @@ import time
 import base64
 import sys
 import inspect
+import secrets
 from loguru import logger
 
 import requests
-from flask import Flask, request, Response, jsonify, stream_with_context
+from flask import Flask, request, Response, jsonify, stream_with_context, render_template, redirect, session
 from curl_cffi import requests as curl_requests
 from werkzeug.middleware.proxy_fix import ProxyFix
-
 
 class Logger:
     def __init__(self, level="INFO", colorize=True, format=None):
@@ -102,6 +102,10 @@ CONFIG = {
         "TUMY_KEY": os.environ.get("TUMY_KEY") or None,
         "RETRY_TIME": 1000,
         "PROXY": os.environ.get("PROXY") or None
+    },
+    "ADMIN": {
+        "MANAGER_SWITCH": os.environ.get("MANAGER_SWITCH") or None,
+        "PASSWORD": os.environ.get("ADMINPASSWORD") or None 
     },
     "SERVER": {
         "COOKIE": None,
@@ -587,7 +591,6 @@ class GrokApiClient:
             if last_message["role"] != 'user':
                 raise ValueError('此模型最后一条消息必须是用户消息!')
             todo_messages = [last_message]
-
         file_attachments = []
         messages = ''
         last_role = None
@@ -658,12 +661,12 @@ class GrokApiClient:
             message_length += len(messages)
             if message_length >= 40000:
                 convert_to_file = True
+               
         if convert_to_file:
             file_id = self.upload_base64_file(messages, request["model"])
             if file_id:
                 file_attachments.insert(0, file_id)
             messages = last_message_content.strip()
-
         return {
             "temporary": CONFIG["API"].get("IS_TEMP_CONVERSATION", False),
             "modelName": self.model_id,
@@ -785,7 +788,7 @@ def handle_image_response(image_url):
                     **DEFAULT_HEADERS,
                     "Cookie":CONFIG["SERVER"]['COOKIE']
                 },
-                impersonate="chrome120",
+                impersonate="chrome133a",
                 **proxy_options
             )
 
@@ -968,11 +971,76 @@ logger.info("初始化完成", "Server")
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(16)
+app.json.sort_keys = False
 
+@app.route('/manager/login', methods=['GET', 'POST'])
+def manager_login():
+    if CONFIG["ADMIN"]["MANAGER_SWITCH"]:
+        if request.method == 'POST':
+            password = request.form.get('password')
+            if password == CONFIG["ADMIN"]["PASSWORD"]:
+                session['is_logged_in'] = True
+                return redirect('/manager')
+            return render_template('login.html', error=True)
+        return render_template('login.html', error=False)
+    else:
+        return redirect('/')
 
-@app.before_request
-def log_request_info():
-    logger.info(f"{request.method} {request.path}", "Request")
+def check_auth():
+    return session.get('is_logged_in', False)
+
+@app.route('/manager')
+def manager():
+    if not check_auth():
+        return redirect('/manager/login')
+    return render_template('manager.html')
+
+@app.route('/manager/api/get')
+def get_manager_tokens():
+    if not check_auth():
+        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify(token_manager.get_token_status_map())
+
+@app.route('/manager/api/add', methods=['POST'])
+def add_manager_token():
+    if not check_auth():
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        sso = request.json.get('sso')
+        if not sso:
+            return jsonify({"error": "SSO token is required"}), 400
+        token_manager.add_token(f"sso-rw={sso};sso={sso}")
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/manager/api/delete', methods=['POST'])
+def delete_manager_token():
+    if not check_auth():
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        sso = request.json.get('sso')
+        if not sso:
+            return jsonify({"error": "SSO token is required"}), 400
+        token_manager.delete_token(f"sso-rw={sso};sso={sso}")
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/manager/api/cf_clearance', methods=['POST'])   
+def setCf_Manager_clearance():
+    if not check_auth():
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        cf_clearance = request.json.get('cf_clearance')
+        if not cf_clearance:
+            return jsonify({"error": "cf_clearance is required"}), 400
+        CONFIG["SERVER"]['CF_CLEARANCE'] = cf_clearance
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/get/tokens', methods=['GET'])
 def get_tokens():
@@ -981,7 +1049,6 @@ def get_tokens():
         return jsonify({"error": '自定义的SSO令牌模式无法获取轮询sso令牌状态'}), 403
     elif auth_token != CONFIG["API"]["API_KEY"]:
         return jsonify({"error": 'Unauthorized'}), 401
-
     return jsonify(token_manager.get_token_status_map())
 
 @app.route('/add/token', methods=['POST'])
