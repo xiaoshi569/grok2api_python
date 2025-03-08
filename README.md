@@ -42,7 +42,7 @@
 | 添加SSO令牌 | POST | `/add/token` | `{sso: "eyXXXXXXXX"}` | 添加SSO认证令牌 |
 | 删除SSO令牌 | POST | `/delete/token` | `{sso: "eyXXXXXXXX"}` | 删除SSO认证令牌 |
 | 获取SSO令牌状态 | GET | `/get/tokens` | - | 查询所有SSO令牌状态 |
-| 修改cf_clearance | POST | `/set/cf_clearance` | `{cf_clearance: "XXXXXXXX"}` | 更新cf_clearance Cookie |
+| 修改cf_clearance | POST | `/set/cf_clearance` | `{cf_clearance: "cf_clearance=XXXXXXXX"}` | 更新cf_clearance Cookie |
 
 **注意事项**：
 - 所有POST请求需要在请求体中携带相应的认证信息
