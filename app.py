@@ -520,7 +520,7 @@ class GrokApiClient:
 
             if response.status_code != 200:
                 logger.error(f"上传文件失败,状态码:{response.status_code}", "Server")
-                return ''
+                raise Exception(f"上传文件失败,状态码:{response.status_code}")
 
             result = response.json()
             logger.info(f"上传文件成功: {result}", "Server")
@@ -528,7 +528,7 @@ class GrokApiClient:
 
         except Exception as error:
             logger.error(str(error), "Server")
-            return ''
+            raise Exception(f"上传文件失败,状态码:{response.status_code}")
     def upload_base64_image(self, base64_data, url):
         try:
             if 'data:image' in base64_data:
@@ -658,6 +658,8 @@ class GrokApiClient:
             message_length += len(messages)
             if message_length >= 40000:
                 convert_to_file = True
+        with open('messages.txt', 'w', encoding='utf-8') as file:
+            file.write(messages)
         if convert_to_file:
             file_id = self.upload_base64_file(messages, request["model"])
             if file_id:
