@@ -594,6 +594,7 @@ class GrokApiClient:
         last_content = ''
         message_length = 0
         convert_to_file = False
+        last_message_content = ''
         search = request["model"] in ['grok-2-search', 'grok-3-search']
 
         # 移除<think>标签及其内容和base64图片
@@ -643,8 +644,8 @@ class GrokApiClient:
 
 
             text_content = process_content(current.get("content", ""))
-            if is_last_message:
-                messages = f"{role.upper()}: {text_content or '[图片]'}\n"
+            if is_last_message and convert_to_file:
+                last_message_content = f"{role.upper()}: {text_content or '[图片]'}\n"
                 continue
             if text_content or (is_last_message and file_attachments):
                 if role == last_role and text_content:
@@ -661,6 +662,7 @@ class GrokApiClient:
             file_id = self.upload_base64_file(messages, request["model"])
             if file_id:
                 file_attachments.insert(0, file_id)
+            messages = last_message_content.strip()
 
         return {
             "temporary": CONFIG["API"].get("IS_TEMP_CONVERSATION", False),
