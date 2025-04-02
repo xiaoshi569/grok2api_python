@@ -7,6 +7,7 @@ import sys
 import inspect
 import secrets
 from loguru import logger
+from pathlib import Path
 
 import requests
 from flask import Flask, request, Response, jsonify, stream_with_context, render_template, redirect, session
@@ -79,8 +80,9 @@ class Logger:
         self.logger.bind(**caller_info).info(f"请求: {request.method} {request.path}", "Request")
 
 logger = Logger(level="INFO")
-
-
+DATA_DIR = Path("/data")
+if not DATA_DIR.exists():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG = {
     "MODELS": {
         'grok-2': 'grok-latest',
@@ -117,7 +119,7 @@ CONFIG = {
         "RETRYSWITCH": False,
         "MAX_ATTEMPTS": 2
     },
-    "TOKEN_STATUS_FILE": "token_status.json",
+    "TOKEN_STATUS_FILE": str(DATA_DIR / "token_status.json"),
     "SHOW_THINKING": os.environ.get("SHOW_THINKING") == "true",
     "IS_THINKING": False,
     "IS_IMG_GEN": False,
@@ -176,7 +178,7 @@ class AuthTokenManager:
         self.token_reset_timer = None
         self.load_token_status() # 加载令牌状态
     def save_token_status(self):
-        try:
+        try:        
             with open(CONFIG["TOKEN_STATUS_FILE"], 'w', encoding='utf-8') as f:
                 json.dump(self.token_status_map, f, indent=2, ensure_ascii=False)
             logger.info("令牌状态已保存到配置文件", "TokenManager")
@@ -185,8 +187,9 @@ class AuthTokenManager:
             
     def load_token_status(self):
         try:
-            if os.path.exists(CONFIG["TOKEN_STATUS_FILE"]):
-                with open(CONFIG["TOKEN_STATUS_FILE"], 'r', encoding='utf-8') as f:
+            token_status_file = Path(CONFIG["TOKEN_STATUS_FILE"])
+            if token_status_file.exists():
+                with open(token_status_file, 'r', encoding='utf-8') as f:
                     self.token_status_map = json.load(f)
                 logger.info("已从配置文件加载令牌状态", "TokenManager")
         except Exception as error:
