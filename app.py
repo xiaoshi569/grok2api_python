@@ -81,6 +81,7 @@ class Logger:
 
 logger = Logger(level="INFO")
 DATA_DIR = Path("/data")
+
 if not DATA_DIR.exists():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG = {
