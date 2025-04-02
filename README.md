@@ -84,6 +84,7 @@
 ```bash
 docker run -it -d --name grok2api_python \
   -p 3000:3000 \
+  -v $(pwd)/data:/data \
   -e IS_TEMP_CONVERSATION=false \
   -e API_KEY=your_api_key \
   -e TUMY_KEY=你的图床key,和PICGO_KEY 二选一 \
@@ -105,6 +106,8 @@ services:
     container_name: grok2api_python
     ports:
       - "3000:3000"
+    volumes:
+      - ./data:/data
     environment:
       - API_KEY=your_api_key
       - IS_TEMP_CONVERSATION=true
@@ -126,6 +129,7 @@ docker build -t yourusername/grok2api .
 ```bash
 docker run -it -d --name grok2api \
   -p 3000:3000 \
+  -v $(pwd)/data:/data \
   -e IS_TEMP_CONVERSATION=false \
   -e API_KEY=your_api_key \
   -e IS_CUSTOM_SSO=false \
@@ -149,6 +153,7 @@ docker run -it -d --name grok2api \
 - `grok-3-search`
 - `grok-3-imageGen`
 - `grok-3-deepsearch`
+- `grok-3-deepersearch`
 - `grok-3-reasoning`
 
 ### 模型可用次数参考
