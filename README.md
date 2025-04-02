@@ -155,6 +155,7 @@ docker run -it -d --name grok2api \
 - grok-2,grok-2-imageGen,grok-2-search 合计：30次  每1小时刷新
 - grok-3,grok-3-search,grok-3-imageGen 合计：20次  每2小时刷新
 - grok-3-deepsearch：10次 每24小时刷新
+- grok-3-deepersearch：3次 每24小时刷新
 - grok-3-reasoning：10次 每24小时刷新
 
 ### cookie的获取办法：
