@@ -6,6 +6,8 @@ import base64
 import sys
 import inspect
 import secrets
+import threading
+import re
 from loguru import logger
 from pathlib import Path
 
@@ -144,7 +146,9 @@ DEFAULT_HEADERS = {
     'Sec-Fetch-Dest': 'empty',
     'Sec-Fetch-Mode': 'cors',
     'Sec-Fetch-Site': 'same-origin',
-    'Baggage': 'sentry-public_key=b311e0f2690c81f25e2c4cf6d4f7ce1c'
+    'Baggage': 'sentry-public_key=b311e0f2690c81f25e2c4cf6d4f7ce1c',
+    'x-statsig-id': '',
+    'x-xai-request-id': 'bb7cacd4-494c-462d-8c1c-5ab42c6f7d2c'
 }
 
 class AuthTokenManager:
@@ -546,7 +550,7 @@ class GrokApiClient:
             response = curl_requests.post(
                 "https://grok.com/rest/app-chat/upload-file",
                 headers={
-                    **DEFAULT_HEADERS,
+                    **get_updated_headers(),
                     "Cookie":cookie
                 },
                 json=upload_data,
@@ -591,7 +595,7 @@ class GrokApiClient:
             response = curl_requests.post(
                 url,
                 headers={
-                    **DEFAULT_HEADERS,
+                    **get_updated_headers(),
                     "Cookie":CONFIG["SERVER"]['COOKIE']
                 },
                 json=upload_data,
@@ -843,14 +847,14 @@ def handle_image_response(image_url):
     max_retries = 2
     retry_count = 0
     image_base64_response = None
-
+    
     while retry_count < max_retries:
         try:
             proxy_options = Utils.get_proxy_options()
             image_base64_response = curl_requests.get(
                 f"https://assets.grok.com/{image_url}",
                 headers={
-                    **DEFAULT_HEADERS,
+                    **get_updated_headers(),
                     "Cookie":CONFIG["SERVER"]['COOKIE']
                 },
                 impersonate="chrome133a",
@@ -1021,6 +1025,7 @@ def handle_stream_response(response, model):
 
 def initialization():
     sso_array = os.environ.get("SSO", "").split(',')
+   
     logger.info("开始加载令牌", "Server")
     token_manager.load_token_status()
     for sso in sso_array:
@@ -1095,7 +1100,7 @@ def delete_manager_token():
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
 @app.route('/manager/api/cf_clearance', methods=['POST'])   
 def setCf_Manager_clearance():
     if not check_auth():
@@ -1134,7 +1139,7 @@ def add_token():
     except Exception as error:
         logger.error(str(error), "Server")
         return jsonify({"error": '添加sso令牌失败'}), 500
-    
+
 @app.route('/set/cf_clearance', methods=['POST'])
 def setCf_clearance():
     auth_token = request.headers.get('Authorization', '').replace('Bearer ', '')
@@ -1147,7 +1152,7 @@ def setCf_clearance():
     except Exception as error:
         logger.error(str(error), "Server")
         return jsonify({"error": '设置cf_clearance失败'}), 500
-    
+
 @app.route('/delete/token', methods=['POST'])
 def delete_token():
     auth_token = request.headers.get('Authorization', '').replace('Bearer ', '')
@@ -1225,7 +1230,7 @@ def chat_completions():
                 response = curl_requests.post(
                     f"{CONFIG['API']['BASE_URL']}/rest/app-chat/conversations/new",
                     headers={
-                        **DEFAULT_HEADERS, 
+                        **get_updated_headers(), 
                         "Cookie":CONFIG["SERVER"]['COOKIE']
                     },
                     data=json.dumps(request_payload),
@@ -1256,6 +1261,10 @@ def chat_completions():
                             raise ValueError(f"{model} 次数已达上限，请切换其他模型或者重新对话")
                 elif response.status_code == 403:
                     response_status_code = 403
+                    # 403错误可能是statsig-id失效，尝试重新获取
+                    logger.warning("检测到403错误，重新获取x-statsig-id", "StatsigManager")
+                    get_or_update_statsig_id(force_refresh=True)
+                    
                     token_manager.reduce_token_request_count(model,1)#重置去除当前因为错误未成功请求的次数，确保不会因为错误未成功请求的次数导致次数上限
                     if token_manager.get_token_count_for_model(model) == 0:
                         raise ValueError(f"{model} 次数已达上限，请切换其他模型或者重新对话")
@@ -1306,6 +1315,81 @@ def chat_completions():
 @app.route('/<path:path>')
 def catch_all(path):
     return 'api运行正常', 200
+
+def get_or_update_statsig_id(force_refresh=False):
+    """
+    获取或更新x-statsig-id
+    如果DEFAULT_HEADERS中的x-statsig-id为空，则从API获取并保存
+    """
+    if not force_refresh and DEFAULT_HEADERS.get('x-statsig-id', '').strip():
+        return DEFAULT_HEADERS['x-statsig-id']
+    
+    try:
+        if force_refresh:
+            logger.info("强制刷新x-statsig-id，尝试从API重新获取", "StatsigManager")
+        else:
+            logger.info("x-statsig-id为空，尝试从API获取", "StatsigManager")
+        
+        # 获取代理设置
+        proxy = CONFIG["API"]["PROXY"]
+        proxy_options = {}
+        
+        if proxy:
+            if proxy.startswith("socks5://"):
+                proxy_options["proxy"] = proxy
+                if '@' in proxy:
+                    auth_part = proxy.split('@')[0].split('://')[1]
+                    if ':' in auth_part:
+                        username, password = auth_part.split(':')
+                        proxy_options["proxy_auth"] = (username, password)
+            else:
+                proxy_options["proxies"] = {"https": proxy, "http": proxy}
+        
+        # 发送请求获取statsig-id
+        response = requests.get(
+            "https://grok-statsig.vercel.app/get_grok_statsig",
+            timeout=30,
+            **proxy_options
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # API返回的字段是'id'
+            statsig_id = result.get('id', '').strip()
+            
+            if statsig_id:
+                # 更新DEFAULT_HEADERS
+                DEFAULT_HEADERS['x-statsig-id'] = statsig_id
+                logger.info(f"成功获取并保存x-statsig-id: {statsig_id[:20]}...", "StatsigManager")
+                return statsig_id
+            else:
+                logger.warning("API返回的statsig_id为空", "StatsigManager")
+        else:
+            logger.error(f"获取statsig-id失败，状态码: {response.status_code}", "StatsigManager")
+            
+    except requests.exceptions.Timeout:
+        logger.error("获取statsig-id超时", "StatsigManager")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"获取statsig-id网络请求失败: {str(e)}", "StatsigManager")
+    except Exception as e:
+        logger.error(f"获取statsig-id时发生未知错误: {str(e)}", "StatsigManager")
+    
+    # 如果获取失败，生成一个随机的statsig-id作为备用
+    backup_id = str(uuid.uuid4())
+    DEFAULT_HEADERS['x-statsig-id'] = backup_id
+    logger.warning(f"使用备用statsig-id: {backup_id}", "StatsigManager")
+    return backup_id
+
+# 在应用启动时获取statsig-id
+# get_or_update_statsig_id()
+
+def get_updated_headers():
+    """
+    获取更新的headers，确保x-statsig-id是最新的
+    """
+    # 确保x-statsig-id不为空
+    get_or_update_statsig_id()
+    return DEFAULT_HEADERS.copy()
 
 if __name__ == '__main__':
     token_manager = AuthTokenManager()
